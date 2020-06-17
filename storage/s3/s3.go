@@ -3,6 +3,13 @@ package s3
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
@@ -10,10 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/larrabee/ratelimit"
 	"github.com/larrabee/s3sync/storage"
-	"io"
-	"net/url"
-	"strings"
-	"time"
 )
 
 // S3Storage configuration.
@@ -59,10 +62,17 @@ func NewS3Storage(awsAccessKey, awsSecretKey, awsToken, awsRegion, endpoint, buc
 		sess.Config.Region = aws.String("us-east-1")
 	}
 
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
 	st := S3Storage{
-		awsBucket:     &bucketName,
-		awsSession:    sess,
-		awsSvc:        s3.New(sess),
+		awsBucket:  &bucketName,
+		awsSession: sess,
+		awsSvc: s3.New(sess, &aws.Config{
+			HTTPClient: client,
+		}),
 		prefix:        prefix,
 		keysPerReq:    keysPerReq,
 		retryCnt:      retryCnt,
